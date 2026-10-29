@@ -1,0 +1,16 @@
+*
+!Dockerfile
+!requirements-api.txt
+!app/
+!app/**
+!feature_store/
+!feature_store/**
+!requirements-dashboard.txt
+!dashboard/
+!dashboard/**
+!.streamlit/
+!.streamlit/config.toml
+**/__pycache__/
+.streamlit/secrets.toml
+feature_store/import_features.py
+feature_store/pipeline.py

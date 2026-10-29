@@ -1,0 +1,38 @@
+_format_version: "3.0"
+_transform: true
+services:
+  - name: driving-feature-api
+    url: http://fastapi:8000
+    routes:
+      - name: protected-api
+        paths:
+          - /api/v1
+        strip_path: false
+    plugins:
+      - name: key-auth
+        config:
+          key_names: [X-API-Key]
+          key_in_header: true
+          key_in_query: false
+          key_in_body: false
+          hide_credentials: true
+      - name: rate-limiting
+        config:
+          minute: __RATE_LIMIT__
+          policy: local
+          limit_by: consumer
+          fault_tolerant: false
+  - name: public-health-and-docs
+    url: http://fastapi:8000
+    routes:
+      - name: health-and-docs
+        paths:
+          - '~/health$'
+          - '~/docs(?:/.*)?$'
+          - '~/openapi.json$'
+          - '~/redoc$'
+        strip_path: false
+consumers:
+  - username: simulator-demo-client
+    keyauth_credentials:
+      - key: __API_KEY__

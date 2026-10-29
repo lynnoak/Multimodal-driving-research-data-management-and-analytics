@@ -1,0 +1,90 @@
+name: driving-simulator-demo
+services:
+  mongodb:
+    image: mongo:8.0
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${DEMO_MONGO_USER:?Run python scripts/setup_demo.py}
+      MONGO_INITDB_ROOT_PASSWORD: ${DEMO_MONGO_PASSWORD:?Run python scripts/setup_demo.py}
+    volumes:
+      - synthetic_mongodb_data:/data/db
+    networks: [database]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand('ping').ok ? 0 : 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      APP_MODE: demo
+      FEATURE_DATABASE: driving_features_demo
+      DEMO_MONGO_USER: ${DEMO_MONGO_USER:?Run python scripts/setup_demo.py}
+      DEMO_MONGO_PASSWORD: ${DEMO_MONGO_PASSWORD:?Run python scripts/setup_demo.py}
+    networks: [database, application]
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+  kong:
+    build:
+      context: ./kong
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /tmp/kong.yml
+      KONG_ADMIN_LISTEN: "off"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_PROXY_ACCESS_LOG: "off"
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_LOG_LEVEL: warn
+      KONG_NGINX_WORKER_PROCESSES: "1"
+      GATEWAY_API_KEY: ${DEMO_API_KEY:?Run python scripts/setup_demo.py}
+      API_RATE_LIMIT_PER_MINUTE: ${DEMO_RATE_LIMIT_PER_MINUTE:-60}
+    ports:
+      - "127.0.0.1:${DEMO_API_PORT:-18000}:8000"
+    networks: [application]
+    depends_on:
+      fastapi:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  streamlit:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    restart: unless-stopped
+    environment:
+      APP_MODE: demo
+      DASHBOARD_API_URL: http://kong:8000
+      GATEWAY_API_KEY: ${DEMO_API_KEY:?Run python scripts/setup_demo.py}
+      DASHBOARD_MODE: demo
+      DASHBOARD_BACKEND: store
+    ports:
+      - "127.0.0.1:${DEMO_DASHBOARD_PORT:-18501}:8501"
+    networks: [application]
+    depends_on:
+      kong:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=4)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  synthetic_mongodb_data:
+networks:
+  database:
+    internal: true
+  application:
