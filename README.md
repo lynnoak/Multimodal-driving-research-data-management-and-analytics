@@ -2,8 +2,6 @@
 
 A lightweight Data Engineering portfolio project for storing, validating, exploring and exporting multimodal driving-simulator features. The public Demo uses **60 entirely fictional observations** across five scenarios. No participant records, raw recordings or research exports are distributed.
 
-Suggested repository name: `driving-simulator-physio-data`.
-
 ## Quick start
 
 Requirements: Docker Desktop in Linux-container mode and Python 3.9+ for the credential setup helper.
